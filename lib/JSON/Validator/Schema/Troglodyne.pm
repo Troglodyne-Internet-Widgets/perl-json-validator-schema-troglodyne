@@ -12,6 +12,7 @@ use re '/aa';
 use parent qw{JSON::Validator::Schema::OpenAPIv3};
 
 use Data::Validate::Email();
+use List::Util qw{any};
 
 =head1 JSON::Validator::Schema::Troglodyne
 
@@ -67,7 +68,7 @@ sub _validate_type_callback {
     }
 
     no strict 'refs';
-    return "$path refers to a sub which does not exist" unless ref \&{$input} eq 'CODE';
+    return "$path refers to a sub which does not exist" unless defined &{$input};
     return;
 }
 

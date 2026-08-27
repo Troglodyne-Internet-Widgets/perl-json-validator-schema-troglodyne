@@ -10,7 +10,7 @@ use Test::More;
 use JSON::Validator::Schema::Troglodyne;
 
 sub validate {
-    my ($self, $opts, $args) = @_;
+    my ($opts, $args) = @_;
     my $validator = JSON::Validator::Schema::Troglodyne->new();
     return $validator->validate($opts, $args);
 }
@@ -18,7 +18,6 @@ sub validate {
 sub _test {
     my ($input, $data, $test, $msg) = @_;
     my @errors = validate($input, $data);
-    diag explain \@errors if @errors;
     like($errors[0], $test, $msg);
 }
 
@@ -43,7 +42,7 @@ _test(\%input, \%data, qr/not a fully qualified sub name/i, "Bogus subname type 
 $input{bar} = 'Fully::bogus';
 _test(\%input, \%data, qr/cannot be loaded/i, "Unloadable Bogus subname results in failure");
 $input{bar} = 'JSON::Validator::Schema::Troglodyne::bogus';
-_test(\%input, \%data, qr/sub that does not exist/i, "Bogus subname results in failure");
+_test(\%input, \%data, qr/sub which does not exist/i, "Bogus subname results in failure");
 $input{bar} = 'JSON::Validator::Schema::Troglodyne::_troglodyne_path';
 my @err = validate(\%input, \%data);
 is(scalar(@err), 0, "OK subname & email results in no failure");
