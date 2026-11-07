@@ -22,6 +22,9 @@ There isn't a mechanism to inject validators into L<JSON::Validator::Formats>,
 so here we are.
 
 Relies entirely on the dynamic dispatch of validator methods via _validate_type_*name* subs being called.
+L</x-errorMessage> relies as well on C<_validate>, which returns the errors of
+each schema, and on the keyword as the second element of the C<details> of an
+error.  All three are private to JSON::Validator.
 If that changes upstream, this module will break.
 
 =head2 TYPES
