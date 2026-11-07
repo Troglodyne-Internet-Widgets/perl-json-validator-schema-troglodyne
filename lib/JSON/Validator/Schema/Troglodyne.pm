@@ -22,6 +22,9 @@ There isn't a mechanism to inject validators into L<JSON::Validator::Formats>,
 so here we are.
 
 Relies entirely on the dynamic dispatch of validator methods via _validate_type_*name* subs being called.
+L</x-errorMessage> relies as well on C<_validate>, which returns the errors of
+each schema, and on the keyword as the second element of the C<details> of an
+error.  All three are private to JSON::Validator.
 If that changes upstream, this module will break.
 
 =head2 TYPES
@@ -70,6 +73,59 @@ sub _validate_type_callback {
     no strict 'refs';
     return "$path refers to a sub which does not exist" unless defined &{$input};
     return;
+}
+
+=head2 KEYWORDS
+
+=head3 x-errorMessage
+
+A hash of messages by the keyword that fails, as the keyword of the same name
+in ajv-errors takes it.  When the data fails the schema that has it, at that
+place in the data, the error has the message of that keyword in place of the
+generic one of L<JSON::Validator::Error>:
+
+    {
+        type             => 'object',
+        minProperties    => 1,
+        not              => { required => ['test'], maxProperties => 1 },
+        'x-errorMessage' => {
+            minProperties => 'names no packager',
+            not           => 'names no packager, only a test',
+        },
+    }
+
+Under C<additionalProperties>, that gives
+C</ffmpeg: names no packager, only a test> for
+C<< { ffmpeg => { test => 'x' } } >>, where JSON::Validator says
+C<Should not match.>
+
+The message of C<required> goes to the error of each missing property, whose
+path is that of the property.  An error that a subschema gives deeper in the
+data keeps its own message, and so does an error of a keyword that the hash
+does not name.  OpenAPI v3 ignores the keywords that start with C<x->, so a
+schema with this keyword is still a valid one.
+
+=cut
+
+sub _validate {
+    my ( $self, $data, $state ) = @_;
+    my @errors = $self->SUPER::_validate( $_[1], $state );
+    my $schema = $state->{schema};
+    return @errors if !@errors || ref $schema ne 'HASH' || ref $schema->{'x-errorMessage'} ne 'HASH';
+
+    my $messages = $schema->{'x-errorMessage'};
+    my $here     = JSON::Validator::Error->new( $state->{path} )->path;
+    for my $error (@errors) {
+        my $keyword = $error->details->[1];
+        next if !defined $keyword || !defined $messages->{$keyword};
+        my $at = $error->path;
+        if ( $keyword eq 'required' ) {
+            $at =~ s{/[^/]*\z}{};
+            $at ||= '/';
+        }
+        $error->message( $messages->{$keyword} ) if $at eq $here;
+    }
+    return @errors;
 }
 
 # Build the path the module usually does for errors
