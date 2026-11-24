@@ -3,7 +3,7 @@ package JSON::Validator::Schema::Troglodyne;
 # ABSTRACT: Troglodyne extensions to the OpenAPIv3 schema validator.
 
 use strict;
-use warnings;
+use warnings FATAL => 'all';
 
 use 5.014;
 
@@ -54,19 +54,20 @@ sub _validate_type_callback {
 
     my $path = $self->_troglodyne_path($info);
 
-    return "$path is not a fully qualified sub name" unless defined $input && !ref $input;
-    my ($modname) = $input =~ m/^([\w:]+)::\w+$/;
+    return "$path is not a fully qualified sub name" if !defined $input || ref $input;
+    my ($modname) = $input =~ m/^([\w:]+)::\w+$/xs;
     return "$path is not a fully qualified sub name" unless $modname;
 
     my $modpath = $modname;
-    $modpath =~ s{::}{/}g;
+    $modpath =~ s{::}{/}gxs;
     $modpath .= '.pm';
 
     local $@;
+
     # Require so we can check the sub exists, but don't dobule-require
     my @available = keys(%INC);
-    my $loaded = any { m/\Q$modpath\E/ } @available;
-    if (!$loaded) {
+    my $loaded    = any { m/\Q$modpath\E/xs } @available;
+    if ( !$loaded ) {
         eval { require $modpath; 1 } or return "$path refers to a module ($modname) which cannot be loaded";
     }
 
@@ -109,7 +110,7 @@ schema with this keyword is still a valid one.
 
 sub _validate {
     my ( $self, $data, $state ) = @_;
-    my @errors = $self->SUPER::_validate( $_[1], $state );
+    my @errors = $self->SUPER::_validate( $data, $state );
     my $schema = $state->{schema};
     return @errors if !@errors || ref $schema ne 'HASH' || ref $schema->{'x-errorMessage'} ne 'HASH';
 
@@ -120,7 +121,7 @@ sub _validate {
         next if !defined $keyword || !defined $messages->{$keyword};
         my $at = $error->path;
         if ( $keyword eq 'required' ) {
-            $at =~ s{/[^/]*\z}{};
+            $at =~ s{/[^/]*\z}{}xs;
             $at ||= '/';
         }
         $error->message( $messages->{$keyword} ) if $at eq $here;
@@ -130,8 +131,8 @@ sub _validate {
 
 # Build the path the module usually does for errors
 sub _troglodyne_path {
-    my ($self, $input) = @_;
-    return "$input->{base_url}/".join('/', @{$input->{path}});
+    my ( $self, $input ) = @_;
+    return "$input->{base_url}/" . join( '/', @{ $input->{path} } );
 }
 
 1;
